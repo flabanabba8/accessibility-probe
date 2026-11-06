@@ -1,0 +1,11 @@
+name: accessibility-probe
+version: "0.1.0"
+description: "Inspect a local HTML document for selected accessible-name and labeling problems."
+author: "Accessibility Probe contributors"
+license: GPL-3.0-or-later
+requires_hermes: ">=0.22.0"
+python_dependencies:
+  - "playwright==1.64.1"
+provides_tools:
+  - accessibility_inspect_html
+  - accessibility_keyboard_walk
