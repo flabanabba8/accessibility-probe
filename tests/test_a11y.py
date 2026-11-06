@@ -12,6 +12,20 @@ core = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(core)
 
 class AccessibilityTests(unittest.TestCase):
+    def test_replacement_during_snapshot_is_rejected(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            page = Path(tmp)/'page.html'; page.write_text('<button>First</button>')
+            replacement = Path(tmp)/'replacement'; replacement.write_text('<button>Second</button>')
+            original = core.os.fstat; calls = 0
+            def replace(fd):
+                nonlocal calls
+                calls += 1
+                value = original(fd)
+                if calls == 2: os.replace(replacement, page)
+                return value
+            with patch.object(core.os, 'fstat', side_effect=replace):
+                with self.assertRaisesRegex(ValueError, 'changed while reading'): core.inspect_html(str(page))
+
     def test_find_and_distinguish_labels(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             p = Path(tmp) / 'page.html'

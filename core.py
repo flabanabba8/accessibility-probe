@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import signal
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -47,8 +48,17 @@ def read_html(source_path):
     if p.is_symlink() or any(x in PRIVATE for x in p.parts): raise ValueError('Private paths and symlink inputs are unsupported')
     p = p.resolve(strict=True)
     if not p.is_file() or any(x in PRIVATE for x in p.parts): raise ValueError('Choose a local HTML file outside private configuration')
-    with p.open('rb') as f: raw = f.read(4 * 1024**2 + 1)
+    fd = os.open(p, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0))
+    with os.fdopen(fd, 'rb') as f:
+        before = os.fstat(f.fileno())
+        if not stat.S_ISREG(before.st_mode): raise ValueError('Choose a regular HTML file')
+        raw = f.read(4 * 1024**2 + 1)
+        after = os.fstat(f.fileno())
     if len(raw) > 4 * 1024**2: raise ValueError('HTML exceeds 4 MiB')
+    current = p.lstat()
+    identity = lambda x: (x.st_dev, x.st_ino, x.st_size, x.st_mtime_ns)
+    if identity(before) != identity(after) or identity(after) != identity(current) or not stat.S_ISREG(current.st_mode):
+        raise ValueError('HTML changed while reading')
     return raw
 
 
