@@ -62,7 +62,7 @@ class KeyboardTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'timed out'):
                     core.keyboard_walk(str(p), ['#ok'])
             self.assertNotIn('INWORLD_API_KEY', spawn.call_args.kwargs['env'])
-            self.assertEqual(kill.call_args.args[0][0], 'taskkill')
+            self.assertEqual(Path(kill.call_args.args[0][0]).name, 'taskkill.exe')
             self.assertIn('/T', kill.call_args.args[0]); process.kill.assert_called_once()
 
     def test_browser_subprocess_does_not_inherit_credentials(self):

@@ -111,8 +111,9 @@ def keyboard_walk(source_path, expected_selectors):
     payload = json.dumps({'content': content, 'expected_selectors': expected_selectors, 'browser_path': browser_path}).encode()
     if sys.platform == 'win32':
         system_root = os.environ.get('SYSTEMROOT', '')
+        if not system_root: raise ValueError('Windows system root is required for browser cleanup')
         child_env = {key: os.environ[key] for key in ('SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP') if key in os.environ}
-        child_env['PATH'] = str(Path(system_root) / 'System32') if system_root else os.defpath
+        child_env['PATH'] = str(Path(system_root) / 'System32')
         process_options = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP}
     else:
         child_env = {'PATH': os.defpath, 'LANG': 'C.UTF-8'}
@@ -126,7 +127,7 @@ def keyboard_walk(source_path, expected_selectors):
             except subprocess.TimeoutExpired as exc:
                 if sys.platform == 'win32':
                     try:
-                        subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], env=child_env,
+                        subprocess.run([str(Path(system_root) / 'System32' / 'taskkill.exe'), '/PID', str(process.pid), '/T', '/F'], env=child_env,
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5, check=False)
                     except (OSError, subprocess.TimeoutExpired):
                         pass
