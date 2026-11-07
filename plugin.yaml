@@ -5,7 +5,7 @@ author: "Accessibility Probe contributors"
 license: GPL-3.0-or-later
 requires_hermes: ">=0.22.0"
 python_dependencies:
-  - "playwright==1.64.1"
+  - "playwright>=1.64.0,<1.65"
 provides_tools:
   - accessibility_inspect_html
   - accessibility_keyboard_walk
