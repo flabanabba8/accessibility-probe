@@ -12,6 +12,11 @@ core = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(core)
 
 class AccessibilityTests(unittest.TestCase):
+    def test_mixed_case_private_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            folder=Path(tmp)/'.CoDeX';folder.mkdir();source=folder/'fixture.html';source.write_text('<p>fictional</p>')
+            with self.assertRaises(ValueError):core.inspect_html(str(source))
+
     def test_replacement_during_snapshot_is_rejected(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             page = Path(tmp)/'page.html'; page.write_text('<button>First</button>')

@@ -45,9 +45,9 @@ class Parser(HTMLParser):
 
 def read_html(source_path):
     p = Path(source_path).expanduser()
-    if p.is_symlink() or any(x in PRIVATE for x in p.parts): raise ValueError('Private paths and symlink inputs are unsupported')
+    if p.is_symlink() or any(x.casefold() in PRIVATE for x in p.parts): raise ValueError('Private paths and symlink inputs are unsupported')
     p = p.resolve(strict=True)
-    if not p.is_file() or any(x in PRIVATE for x in p.parts): raise ValueError('Choose a local HTML file outside private configuration')
+    if not p.is_file() or any(x.casefold() in PRIVATE for x in p.parts): raise ValueError('Choose a local HTML file outside private configuration')
     fd = os.open(p, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0))
     with os.fdopen(fd, 'rb') as f:
         before = os.fstat(f.fileno())
