@@ -48,6 +48,23 @@ class AccessibilityTests(unittest.TestCase):
             self.assertEqual(core.inspect_html(str(p))['issues'], [])
 
 class KeyboardTests(unittest.TestCase):
+    def test_windows_timeout_requests_tree_cleanup_without_credentials(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            p = Path(tmp) / 'page.html'; p.write_text('<button id="ok">OK</button>')
+            process = Mock(); process.pid = 98765; process.poll.return_value = None
+            process.__enter__ = Mock(return_value=process); process.__exit__ = Mock(return_value=False)
+            process.communicate.side_effect = [core.subprocess.TimeoutExpired('fixture', 45), (b'', None)]
+            with patch.object(core.sys, 'platform', 'win32'), patch('shutil.which', return_value='fixture-edge'), \
+                 patch.object(core.subprocess, 'CREATE_NEW_PROCESS_GROUP', 512, create=True), \
+                 patch.dict(os.environ, {'SYSTEMROOT': '/fixture', 'INWORLD_API_KEY': 'fixture-only-value'}), \
+                 patch.object(core.subprocess, 'Popen', return_value=process) as spawn, \
+                 patch.object(core.subprocess, 'run') as kill:
+                with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                    core.keyboard_walk(str(p), ['#ok'])
+            self.assertNotIn('INWORLD_API_KEY', spawn.call_args.kwargs['env'])
+            self.assertEqual(kill.call_args.args[0][0], 'taskkill')
+            self.assertIn('/T', kill.call_args.args[0]); process.kill.assert_called_once()
+
     def test_browser_subprocess_does_not_inherit_credentials(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             p = Path(tmp) / 'page.html'

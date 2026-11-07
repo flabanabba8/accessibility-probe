@@ -103,18 +103,37 @@ def keyboard_walk(source_path, expected_selectors):
     raw = read_html(source_path)
     content = raw.decode('utf-8-sig')
     browser_path = shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
+    if not browser_path and sys.platform == 'win32':
+        browser_path = shutil.which('msedge') or next((str(p) for key in ('PROGRAMFILES', 'PROGRAMFILES(X86)', 'LOCALAPPDATA')
+            if os.environ.get(key) for p in (Path(os.environ[key]) / 'Microsoft' / 'Edge' / 'Application' / 'msedge.exe',) if p.is_file()), None)
     if not browser_path:
-        raise ValueError('Install a compatible Chrome or Chromium executable')
+        raise ValueError('Install a compatible Chrome, Chromium or Microsoft Edge executable')
     payload = json.dumps({'content': content, 'expected_selectors': expected_selectors, 'browser_path': browser_path}).encode()
+    if sys.platform == 'win32':
+        system_root = os.environ.get('SYSTEMROOT', '')
+        child_env = {key: os.environ[key] for key in ('SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP') if key in os.environ}
+        child_env['PATH'] = str(Path(system_root) / 'System32') if system_root else os.defpath
+        process_options = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP}
+    else:
+        child_env = {'PATH': os.defpath, 'LANG': 'C.UTF-8'}
+        process_options = {'start_new_session': True}
     try:
         with subprocess.Popen([sys.executable, '-I', str(Path(__file__).with_name('browser_worker.py'))],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                env={'PATH': os.defpath, 'LANG': 'C.UTF-8'}, start_new_session=True) as process:
+                env=child_env, **process_options) as process:
             try:
                 output, _ = process.communicate(input=payload, timeout=45)
             except subprocess.TimeoutExpired as exc:
-                try: os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError: pass
+                if sys.platform == 'win32':
+                    try:
+                        subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], env=child_env,
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5, check=False)
+                    except (OSError, subprocess.TimeoutExpired):
+                        pass
+                    if process.poll() is None: process.kill()
+                else:
+                    try: os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError: pass
                 process.communicate()
                 raise RuntimeError('Headless browser walkthrough timed out') from exc
             if process.returncode or len(output) > 1024 * 1024:
